@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -19,26 +20,37 @@ type Branch struct {
 }
 
 func (h Hash) commit() {
+	var out bytes.Buffer
 	fmt.Println(h.Msg)
-	args := strings.Split("cherry-pick", " ")
+	args := strings.Split("cherry-pick --strategy-option theirs", " ")
 	args = append(args, h.Commit)
 	cmd := exec.Command("git", args...)
-	fmt.Println(cmd.Run())
+	cmd.Stdout = &out
+	err := cmd.Run()
+	if err != nil {
+		fmt.Println("Error with cherry-pick")
+		fmt.Println(err)
+	}
+
+	fmt.Println(out.String())
 }
 
 func pushMaster() {
+	fmt.Println("pushing to master")
 	args := strings.Split("push", " ")
 	cmd := exec.Command("git", args...)
 	fmt.Println(cmd.Run())
 }
 
 func pullMaster() {
+	fmt.Println("pulling master")
 	args := strings.Split("pull", " ")
 	cmd := exec.Command("git", args...)
 	fmt.Println(cmd.Run())
 }
 
 func checkoutMaster() {
+	fmt.Println("checking out master")
 	args := strings.Split("checkout master", " ")
 	cmd := exec.Command("git", args...)
 	fmt.Println(cmd.Run())
@@ -83,10 +95,17 @@ func main() {
 		fmt.Println(b)
 		fmt.Println("")
 
+		var out bytes.Buffer
 		args := strings.Split("checkout -b", " ")
 		args = append(args, b.Name)
 		cmd := exec.Command("git", args...)
-		fmt.Println(cmd.Run())
+		cmd.Stdout = &out
+		err := cmd.Run()
+		if err != nil {
+			fmt.Println("Error with checkout -b")
+			fmt.Println(err)
+		}
+		fmt.Println(out.String())
 
 		for _, h := range b.Commits {
 			h.commit()
@@ -98,7 +117,8 @@ func main() {
 		fmt.Println(cmd.Run())
 
 		var nilString string
-		fmt.Scanf("Waiting for merge%s", &nilString)
+		fmt.Println("Waiting for merge")
+		fmt.Scanf("%s", &nilString)
 
 		checkoutMaster()
 		pullMaster()
