@@ -4,6 +4,9 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"strings"
@@ -16,7 +19,56 @@ type Hash struct {
 
 type Branch struct {
 	Name    string
+	Id      int `json: "id"`
 	Commits []Hash
+}
+
+func (b *Branch) submitMergeRequest() {
+	client := &http.Client{}
+	values := url.Values{}
+	values.Add("id", "349")
+	values.Add("source_branch", b.Name)
+	values.Add("target_branch", "master")
+	values.Add("title", b.Name)
+
+	req, _ := http.NewRequest("POST", "https://code.com/api/v3/projects/349/merge_requests", strings.NewReader(values.Encode()))
+	req.Header.Add("PRIVATE-TOKEN", "")
+	resp, err := client.Do(req)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Println(err)
+	}
+	fmt.Println(string(body))
+
+	_ = json.Unmarshal(body, b)
+	fmt.Println("submitted merge request")
+}
+
+func (b *Branch) acceptMergeRequest() {
+	client := &http.Client{}
+	values := url.Values{}
+	values.Add("id", "349")
+	values.Add("merge_request_id", fmt.Sprintf("%d", b.Id))
+
+	req, _ := http.NewRequest("PUT", fmt.Sprintf("https://code.com/api/v3/projects/349/merge_request/%d/merge", b.Id), strings.NewReader(values.Encode()))
+	req.Header.Add("PRIVATE-TOKEN", "")
+	resp, err := client.Do(req)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	defer resp.Body.Close()
+	_, err = ioutil.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	fmt.Println("acceptMergeRequest")
 }
 
 func (h Hash) commit() {
@@ -116,9 +168,9 @@ func main() {
 		cmd = exec.Command("git", args...)
 		fmt.Println(cmd.Run())
 
-		var nilString string
 		fmt.Println("Waiting for merge")
-		fmt.Scanf("%s", &nilString)
+		b.submitMergeRequest()
+		b.acceptMergeRequest()
 
 		checkoutMaster()
 		pullMaster()
